@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>英文半角逗号引发的Chrome Bug | 孙道之 Tech</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/css/highlight.css">
+
+  
+  <meta name="description" content="公司内部使用 oss 作为文件存储服务器，测试提出一个使用 chrome 浏览器下载文件的 bug ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION">
+<meta property="og:type" content="article">
+<meta property="og:title" content="英文半角逗号引发的Chrome Bug">
+<meta property="og:url" content="https://sundaozhi.tech/2021/12/02/%E5%8C%85%E5%90%AB%E8%8B%B1%E6%96%87%E5%8D%8A%E8%A7%92%E9%80%97%E5%8F%B7%E7%9A%84%E6%96%87%E4%BB%B6%E4%B8%8B%E8%BD%BD%E5%BC%95%E5%8F%91%E7%9A%84-chrome-bug/index.html">
+<meta property="og:site_name" content="孙道之 Tech">
+<meta property="og:description" content="公司内部使用 oss 作为文件存储服务器，测试提出一个使用 chrome 浏览器下载文件的 bug ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/2a52d029076926ec1234d886dad1c1fc.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/e335892538e9b8489e4503b30d0c9de6.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/0be31019a9cf069b823bdb8f0744f8ee.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/92ed4f57a94c5d515e693bc3a78d6f28.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/7a519ab0b68d11d6c4f1592befae0fde.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/08d66208651b07e2a2b9164bbfbd8cdc.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/ec7a102e9bfdaa967061e761ae64602a.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/04bbdcea65cf2e872bcb556c8e7c3d25.png">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/img_convert/b44532aaa6f91c5cc7765981d7c46e39.png">
+<meta property="article:published_time" content="2021-12-02T15:19:07.000Z">
+<meta property="article:modified_time" content="2023-02-26T12:01:26.497Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="问题排查">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://img-blog.csdnimg.cn/img_convert/2a52d029076926ec1234d886dad1c1fc.png"><meta name="generator" content="Hexo 6.3.0"></head>
+
+<body>
+  <div id="wrapper">
+    <header id="header">
+  <h1 id="title">
+    <a href="/">孙道之 Tech</a>
+  </h1>
+  <nav>
+    
+    
+      
+      <a class="nav-link" href="/">Home</a>
+    
+      
+        <span class="nav-spacer">×</span>
+      
+      <a class="nav-link" href="/archives">Archives</a>
+    
+    
+  </nav>
+</header>
+
+    <div id="content">
+      <article id="post-包含英文半角逗号的文件下载引发的-chrome-bug" class="article article-type-post" itemprop="blogPost" itemscope>
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h2 class="article-title" itemprop="headline name">
+      英文半角逗号引发的Chrome Bug
+    </h2>
+  
+
+
+        <div class="article-meta">
+          <time class="article-date" datetime="2021-12-02T15:19:07.000Z" itemprop="datePublished">December 2, 2021, 11:19 PM</time>
+
+          
+        </div>
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+      
+        <p>公司内部使用 oss 作为文件存储服务器，测试提出一个使用 chrome 浏览器下载文件的 bug</p>
+<p><strong>ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION</strong></p>
+<span id="more"></span>
+
+<p><img src="https://img-blog.csdnimg.cn/img_convert/2a52d029076926ec1234d886dad1c1fc.png"></p>
+<p>具体上传下载流程如下：</p>
+<ol>
+<li>使用 chrome 浏览器上传文件名称包含英文半角逗号的文件</li>
+<li>上传操作成功，根据 oss 中文件 url 进行下载操作</li>
+<li>请求可以正常发出，但是响应时浏览器发生崩溃现象，页面提示错误</li>
+<li>其它浏览器无此问题，多处查看判断为谷歌浏览器问题，暂定义为 bug</li>
+</ol>
+<p>下面会根据步骤说明此问题的出现，并给出问题结论</p>
+<h2 id="环境配置"><a href="#环境配置" class="headerlink" title="环境配置"></a>环境配置</h2><hr>
+<p>oss 上传文件在官网给出很多种案例，以及不同语言的 sdk，文章演示 java sdk 基于文件流的形式上传</p>
+<p><strong>chrome 版本</strong></p>
+<p>版本 87.0.4280.88（正式版本） (x86_64)</p>
+<p><strong>oss sdk</strong></p>
+<p>虽然不是最新的，但是文章所描述问题与 oss sdk 版本无关，因为挨个试过 🙃️</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- https://mvnrepository.com/artifact/com.aliyun.oss/aliyun-sdk-oss --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.aliyun.oss<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>aliyun-sdk-oss<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>3.10.2<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>springboot 版本</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">parent</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-parent<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.2.11.RELEASE<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">relativePath</span>/&gt;</span> <span class="comment">&lt;!-- lookup parent from repository --&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">parent</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="oss-文件上传"><a href="#oss-文件上传" class="headerlink" title="oss 文件上传"></a>oss 文件上传</h2><hr>
+<p>首先我们先来模拟 oss 上传文件的流程，下图是 oss 官方提供的代码示例，我们加以参考</p>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/e335892538e9b8489e4503b30d0c9de6.png"></p>
+<h3 id="定义上传接口"><a href="#定义上传接口" class="headerlink" title="定义上传接口"></a>定义上传接口</h3><p>以下代码为自己搭建项目实现，模拟出错链路</p>
+<p>使用 swagger2 展示可视化 ui 界面上传文件，入参分别是 oss backet 桶名称、文件<br><img src="https://img-blog.csdnimg.cn/img_convert/0be31019a9cf069b823bdb8f0744f8ee.png"><br>这一块参考了 oss 官方提供的 java sdk 示例代码，一共分为以下几个步骤</p>
+<ol>
+<li>根据 endpoint、accessKeyId、accessKeySecret 创建 oss 客户端</li>
+<li>获取文件流、（uuid + 扩展名）oss 文件名进行上传</li>
+<li>拼接可访问的 url 返回前端</li>
+</ol>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/92ed4f57a94c5d515e693bc3a78d6f28.png"></p>
+<p>代码既然都写好了，光说不练假把式，上传个文件试试水</p>
+<p>我们上传的 Pdf 文件是个空的，文件名中包含了英文半角的逗号，上传到 oss 之后通过访问返回 url 测试刚才的问题</p>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/7a519ab0b68d11d6c4f1592befae0fde.png"></p>
+<p>浏览器输入 url 返回 pdf 文件，因为是个空文件，所以一片空白。问题来了：<strong>不是说上传文件名称包含英文半角逗号会报错么</strong></p>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/08d66208651b07e2a2b9164bbfbd8cdc.png"></p>
+<p><strong>其实如果是预览文件，不会出现文初的问题报错</strong>。但是，前端需要根据文件 url <strong>下载文件到本地</strong></p>
+<p>目前作者知道两种方式实现访问文件 url 做到下载本地的功能</p>
+<ol>
+<li>前端请求后端接口，获取到文件 oss url 以及文件原名称；前端访问 oss url 地址，通过返回文件流以及文件原本名称包装进行下载到本地</li>
+<li>通过修改 oss url 中的 http head 直接下载文件，这也是目前公司在使用的一种方式，问题也就出在这</li>
+</ol>
+<h3 id="修改文件上传"><a href="#修改文件上传" class="headerlink" title="修改文件上传"></a>修改文件上传</h3><p>修改上传的部分代码，使得访问 oss url 实现下载文件功能</p>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/ec7a102e9bfdaa967061e761ae64602a.png"></p>
+<p>上图圈起来的代码等效与在 oss 控制台设置文件 http head，把文件原名称标记为附件名称，以此实现下载功能</p>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/04bbdcea65cf2e872bcb556c8e7c3d25.png"></p>
+<p>问题出就出在这里，经过实际测试，fileName 中不加双引号并且包含英文半角逗号会导致报错，<strong>其它浏览器并无此问题</strong></p>
+<h2 id="问题解决"><a href="#问题解决" class="headerlink" title="问题解决"></a>问题解决</h2><p>本来都准备让前端 <strong>拦截带英文逗号或者把英文逗号替换称中文逗号</strong>，但是本着 <strong>认(强)真(迫)负(症)责</strong> 的态度咨询了阿里云工单客服(小哥哥 or 小姐姐)</p>
+<p>给出相关思路，服务器端函数响应中若设置 http head content-disposition，&#x3D;&#x3D;需要确保 filename 参数使用双引号包裹&#x3D;&#x3D;</p>
+<p>&#x3D;&#x3D;目前已知 fileName 中如果不包含英文逗号，即使不加双引号也没有问题&#x3D;&#x3D;</p>
+<p>修改相关代码，把文件 http head 中 content-disposition fileName 使用双引号包起来</p>
+<p><img src="https://img-blog.csdnimg.cn/img_convert/b44532aaa6f91c5cc7765981d7c46e39.png"></p>
+<p>设置 http head content-disposition 中实际效果如：</p>
+<p><strong>content-disposition&#x3D;attachment;fileName&#x3D;”原文件名称”</strong></p>
+<p>经过实际测试，火狐、safari 等其它浏览器同样适配此改动</p>
+<h2 id="结言"><a href="#结言" class="headerlink" title="结言"></a>结言</h2><hr>
+<p>通过 chrome 浏览器下载文件报错的问题，引发了一系列猜测及测试，最终完成修改更正</p>
+<p>经历此次问题也收获了很多知识，以此证明工作中解决的疑难杂症都是以后 coding 路上的收获，very nice</p>
+
+      
+    </div>
+    
+    
+    <div class="article-category">
+      
+        <b>Categories:</b>
+        <a class="article-category-link" href="/categories/Chrome/">Chrome</a>
+      
+      
+        <br/>
+      
+      
+        <b>Tags:</b>
+        <a class="article-tag-none-link" href="/tags/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" rel="tag">问题排查</a>
+      
+    </div>
+    
+    
+  </div>
+</article>
+
+  
+<nav id="article-nav" class="article-nav">
+  
+    <a href="/2022/02/28/linux-centos7.x%E5%AE%89%E8%A3%85python3.x%E6%9B%BF%E6%8D%A2python2.x/" id="article-nav-newer" class="article-nav-link-wrap newer">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Centos安装Python3.x
+        
+      </div>
+    </a>
+  
+  
+    <span id="article-nav-older" class="article-nav-link-wrap older"></span>
+  
+</nav>
+
+
+
+
+
+
+    </div>
+  </div>
+  
+
+
+
+
+<div id="settings-container">
+  <div id="dark-mode">dark</div>
+  <div id="sans-font">sans</div>
+</div>
+<script type="text/javascript">
+let d=document,r=d.documentElement.style,f=r.setProperty.bind(r),l=localStorage,s=l.getItem('s')||(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches),n=l.getItem('n'),m=d.getElementById("dark-mode"),b=()=>{f('--bg-color','#fafafa');f('--code-bg-color','#f4f4f4');f('--text-color','#212121');f('--secondary-color','#808080');f('--tertiary-color','#b0b0b0');f('--link-color','#b5c8cf');f('--link-hover-color','#618794');f('--link-bg-color','#dae4e7');f('--selection-color','#dae4e7');m.innerHTML="dark"},c=()=>{f('--bg-color','#212121');f('--code-bg-color','#292929');f('--text-color','#fff');f('--secondary-color','#c0c0c0');f('--tertiary-color','#6e6e6e');f('--link-color','#4d6b75');f('--link-hover-color','#96b1bb');f('--link-bg-color','#5d828e');f('--selection-color','#acc1c9');m.innerHTML="light"},o=d.getElementById("sans-font"),e=()=>{f('--body-stack','"Lora", "Georgia", "Times New Roman", serif');o.innerHTML="sans"},g=()=>{f('--body-stack','"Lato", "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", "Verdana", sans-serif');o.innerHTML="serif"};m.onclick=()=>{if(s==2){s=1;l.setItem('s',s);c()}else{s=2;l.setItem('s',s);b()}};o.onclick=()=>{if(n==2){n=1;l.setItem('n',n);g()}else{n=2;l.setItem('n',n);e()}};if(!s){s=2;l.setItem('s',2)};if(s==1){c()};if(!n){n=2;l.setItem('n',2)};if(n==1){g()};
+</script>
+
+
+
+
+</body>
+</html>

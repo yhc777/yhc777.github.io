@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>并发编程之阻塞队列 | 孙道之 Tech</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/css/highlight.css">
+
+  
+  <meta name="description" content="队列是一种 先进先出的特殊线性表，简称 FIFO。特殊之处在于只允许在一端插入，在另一端删除 进行插入操作的端称为队尾，进行删除操作的端称为队头。队列中没有元素时，称为空队列">
+<meta property="og:type" content="article">
+<meta property="og:title" content="并发编程之阻塞队列">
+<meta property="og:url" content="https://sundaozhi.tech/2022/12/02/%E4%BB%80%E4%B9%88%E6%98%AF%E9%98%BB%E5%A1%9E%E9%98%9F%E5%88%97/index.html">
+<meta property="og:site_name" content="孙道之 Tech">
+<meta property="og:description" content="队列是一种 先进先出的特殊线性表，简称 FIFO。特殊之处在于只允许在一端插入，在另一端删除 进行插入操作的端称为队尾，进行删除操作的端称为队头。队列中没有元素时，称为空队列">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105150717016.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/u=1774208423,3562736106&fm=26&gp=0.jpg">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210103164258164.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105141554397.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105142312548.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105142340446.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105143438281.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105143723235.png">
+<meta property="og:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105144218850.png">
+<meta property="article:published_time" content="2022-12-02T15:19:07.000Z">
+<meta property="article:modified_time" content="2023-02-26T11:43:04.924Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="LinkedBlockingQueue">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105150717016.png"><meta name="generator" content="Hexo 6.3.0"></head>
+
+<body>
+  <div id="wrapper">
+    <header id="header">
+  <h1 id="title">
+    <a href="/">孙道之 Tech</a>
+  </h1>
+  <nav>
+    
+    
+      
+      <a class="nav-link" href="/">Home</a>
+    
+      
+        <span class="nav-spacer">×</span>
+      
+      <a class="nav-link" href="/archives">Archives</a>
+    
+    
+  </nav>
+</header>
+
+    <div id="content">
+      <article id="post-什么是阻塞队列" class="article article-type-post" itemprop="blogPost" itemscope>
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h2 class="article-title" itemprop="headline name">
+      并发编程之阻塞队列
+    </h2>
+  
+
+
+        <div class="article-meta">
+          <time class="article-date" datetime="2022-12-02T15:19:07.000Z" itemprop="datePublished">December 2, 2022, 11:19 PM</time>
+
+          
+        </div>
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+      
+        <p>队列是一种 <strong>先进先出的特殊线性表</strong>，简称 FIFO。特殊之处在于只允许在一端插入，在另一端删除</p>
+<p>进行插入操作的端称为队尾，进行删除操作的端称为队头。队列中没有元素时，称为空队列</p>
+<span id="more"></span>
+
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105150717016.png"><br>队列在程序设计中使用非常的多，包括一些中间件底层数据结构就是队列（基础内容没有过多讲解）</p>
+<h2 id="什么是阻塞队列"><a href="#什么是阻塞队列" class="headerlink" title="什么是阻塞队列"></a>什么是阻塞队列</h2><p>队列就队列呗，阻塞队列又是什么鬼</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/u=1774208423,3562736106&fm=26&gp=0.jpg"><br>阻塞队列是在队列的基础上额外添加两个操作的队列，分别是：</p>
+<ol>
+<li>支持阻塞的插入方法：队列容量满时，插入元素线程会被阻塞，直到队列有多余容量为止</li>
+<li>支持阻塞的移除方法：当队列中无元素时，移除元素的线程会被阻塞，直到队列有元素可被移除</li>
+</ol>
+<p>文章以 LinkedBlockingQueue 为例，讲述队列之间实现的不同点，为方便小伙伴阅读，LinkedBlockingQueue 取别名 LBQ</p>
+<blockquote>
+<p>因为是源码解析文章，_建议小伙伴们在 PC 端观看_。当然，如果屏足够大当我没说～</p>
+</blockquote>
+<h2 id="阻塞队列继承关系"><a href="#阻塞队列继承关系" class="headerlink" title="阻塞队列继承关系"></a>阻塞队列继承关系</h2><p>阻塞队列是一个抽象的叫法，阻塞队列底层数据结构 <strong>可以是数组，可以是单向链表，亦或者是双向链表…</strong></p>
+<p>LBQ 是一个以 <strong>单向链表组成的队列</strong>，下图为 LBQ 上下继承关系图</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210103164258164.png"><br>从图中得知，LBQ 实现了 BlockingQueue 接口，BlockingQueue 实现了 Queue 接口</p>
+<h3 id="Queue-接口分析"><a href="#Queue-接口分析" class="headerlink" title="Queue 接口分析"></a>Queue 接口分析</h3><p>我们以自上而下的方式，先分析一波 Queue 接口里都定义了哪些方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 如果队列容量允许，立即将元素插入队列，成功后返回</span></span><br><span class="line"><span class="comment">// 🌟如果队列容量已满，则抛出异常</span></span><br><span class="line"><span class="type">boolean</span> <span class="title function_">add</span><span class="params">(E e)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">//  如果队列容量允许，立即将元素插入队列，成功后返回</span></span><br><span class="line"><span class="comment">// 🌟如果队列容量已满，则返回 false</span></span><br><span class="line"><span class="comment">// 当使用有界队列时，offer 比 add 方法更何时</span></span><br><span class="line"><span class="type">boolean</span> <span class="title function_">offer</span><span class="params">(E e)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 检索并删除队列的头节点，返回值为删除的队列头节点</span></span><br><span class="line"><span class="comment">// 🌟如果队列为空则抛出异常</span></span><br><span class="line">E <span class="title function_">remove</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 检索并删除队列的头节点，返回值为删除的队列头节点</span></span><br><span class="line"><span class="comment">// 🌟如果队列为空则返回 null</span></span><br><span class="line">E <span class="title function_">poll</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 检查但不删除队列头节点</span></span><br><span class="line"><span class="comment">// 🌟如果队列为空则抛出异常</span></span><br><span class="line">E <span class="title function_">element</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 检查但不删除队列头节点</span></span><br><span class="line"><span class="comment">// 🌟如果队列为空则返回 null</span></span><br><span class="line">E <span class="title function_">peek</span><span class="params">()</span>;</span><br></pre></td></tr></table></figure>
+
+<p>总结一下 Queue 接口的方法，分为三个大类：</p>
+<ol>
+<li>新增元素到队列容器中：add、offer</li>
+<li>从队列容器中移除元素：remove、poll</li>
+<li>查询队列头节点是否为空：element、peek</li>
+</ol>
+<p>从接口 API 的程序健壮性考虑，可以分为两大类：</p>
+<ol>
+<li>健壮 API：offer、poll、peek</li>
+<li>非健壮 API：add、remove、element</li>
+</ol>
+<p><strong>接口 API 并无健壮可言</strong>，这里说的健壮界限指得是，使用了非健壮性的 API 接口，程序会出错的几率大了点，所以我们 <strong>更应该关注的是如何捕获可能出现的异常，以及对应异常处理</strong></p>
+<h3 id="BlockingQueue-接口分析"><a href="#BlockingQueue-接口分析" class="headerlink" title="BlockingQueue 接口分析"></a>BlockingQueue 接口分析</h3><p>BlockingQueue 接口继承自 Queue 接口，所以有些语义相同的 API 接口就没有放上来解读</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 将指定元素插入队列，如果队列已满，等待直到有空间可用；通过 throws 异常得知，可在等待时打断</span></span><br><span class="line"><span class="comment">// 🌟相对于 Queue 接口而言，是一个全新的方法</span></span><br><span class="line"><span class="keyword">void</span> <span class="title function_">put</span><span class="params">(E e)</span> <span class="keyword">throws</span> InterruptedException;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 将指定元素插入队列，如果队列已满，在等待指定的时间内等待腾出空间；通过 throws 异常得知，可在等待时打断</span></span><br><span class="line"><span class="comment">// 🌟相当于是 offer(E e) 的扩展方法</span></span><br><span class="line"><span class="type">boolean</span> <span class="title function_">offer</span><span class="params">(E e, <span class="type">long</span> timeout, TimeUnit unit)</span> <span class="keyword">throws</span> InterruptedException;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 检索并除去此队列的头节点，如有必要，等待直到元素可用；通过 throws 异常得知，可在等待时打断</span></span><br><span class="line">E <span class="title function_">take</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 检索并删除此队列的头，如果有必要使元素可用，则等待指定的等待时间；通过 throws 异常得知，可在等待时打断</span></span><br><span class="line"><span class="comment">// 🌟相当于是 poll() 的扩展方法</span></span><br><span class="line">E <span class="title function_">poll</span><span class="params">(<span class="type">long</span> timeout, TimeUnit unit)</span> <span class="keyword">throws</span> InterruptedException;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回队列剩余容量，如果为无界队列，返回 Integer.MAX_VALUE</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">remainingCapacity</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 如果此队列包含指定的元素，则返回 true</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">contains</span><span class="params">(Object o)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 从此队列中删除所有可用元素，并将它们添加到给定的集合中</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">drainTo</span><span class="params">(Collection&lt;? <span class="built_in">super</span> E&gt; c)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 从此队列中最多移除给定数量的可用元素，并将它们添加到给定的集合中</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">drainTo</span><span class="params">(Collection&lt;? <span class="built_in">super</span> E&gt; c, <span class="type">int</span> maxElements)</span>;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到 BlockingQueue 接口中个性化的方法还是挺多的。本文的猪脚 LBQ 就是实现自 BlockingQueue 接口</p>
+<h2 id="源码解析"><a href="#源码解析" class="headerlink" title="源码解析"></a>源码解析</h2><h3 id="变量分析"><a href="#变量分析" class="headerlink" title="变量分析"></a>变量分析</h3><p>LBQ 为了保证并发添加、移除等操作，使用了 JUC 包下的 ReentrantLock、Condition 控制</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// take, poll 等移除操作需要持有的锁</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="type">ReentrantLock</span> <span class="variable">takeLock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReentrantLock</span>();</span><br><span class="line"><span class="comment">// 当队列没有数据时，删除元素线程被挂起</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="type">Condition</span> <span class="variable">notEmpty</span> <span class="operator">=</span> takeLock.newCondition();</span><br><span class="line"><span class="comment">// put, offer 等新增操作需要持有的锁</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="type">ReentrantLock</span> <span class="variable">putLock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReentrantLock</span>();</span><br><span class="line"><span class="comment">// 当队列为空时，添加元素线程被挂起</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="type">Condition</span> <span class="variable">notFull</span> <span class="operator">=</span> putLock.newCondition();</span><br></pre></td></tr></table></figure>
+
+<p>ArrayBlockingQueue（ABQ）内部元素个数字段为什么使用的是 <strong>int 类型的 count 变量？不担心并发么</strong></p>
+<ol>
+<li>因为 ABQ 内部使用的一把锁控制入队、出队操作，同一时刻只会有单线程执行 count 变量修改</li>
+<li>LBQ 使用的两把锁，所以会出现两个线程同时修改 count 数值，如果像 ABQ 使用 int 类型，两个流程同时执行修改 count 个数，会造成数据不准确，所以需要使用并发原子类修饰</li>
+</ol>
+<blockquote>
+<p>如果不太明白为什么要用原子类统计数量，<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/11E-n-lpqwjIjpY4oz6D5Q">猛戳这里</a></p>
+</blockquote>
+<p>接下来从结构体入手，知道它是由什么元素组成，每个元素是做啥使的。如果数据结构还不错的小伙伴，应该可以猜出来</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 绑定的容量，如果无界，则为 Integer.MAX_VALUE</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> capacity;</span><br><span class="line"><span class="comment">// 当前队列中元素个数</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="type">AtomicInteger</span> <span class="variable">count</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicInteger</span>();</span><br><span class="line"><span class="comment">// 当前队列的头节点</span></span><br><span class="line"><span class="keyword">transient</span> Node&lt;E&gt; head;</span><br><span class="line"><span class="comment">// 当前队列的尾节点</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">transient</span> Node&lt;E&gt; last;</span><br></pre></td></tr></table></figure>
+
+<p>看到 head 和 last 元素，是不是对 LBQ 就有个大致的雏形了，这个时候还差一个结构体 Node</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Node</span>&lt;E&gt; &#123;</span><br><span class="line">    <span class="comment">// 节点存储的元素</span></span><br><span class="line">    E item;</span><br><span class="line">    <span class="comment">// 当前节点的后继节点</span></span><br><span class="line">    LinkedBlockingQueue.Node&lt;E&gt; next;</span><br><span class="line"></span><br><span class="line">    Node(E x) &#123; item = x; &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="构造器分析"><a href="#构造器分析" class="headerlink" title="构造器分析"></a>构造器分析</h3><p>这里画一张图来理解下 LBQ 默认构造方法是如何初始化队列的</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">LinkedBlockingQueue</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>(Integer.MAX_VALUE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="title function_">LinkedBlockingQueue</span><span class="params">(<span class="type">int</span> capacity)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (capacity &lt;= <span class="number">0</span>) <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>();</span><br><span class="line">    <span class="built_in">this</span>.capacity = capacity;</span><br><span class="line">    last = head = <span class="keyword">new</span> <span class="title class_">Node</span>&lt;E&gt;(<span class="literal">null</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看出，默认构造方法会将容量设置为 Integer.MAX_VALUE，也就是大家常说的无界队列</p>
+<p>内部其实调用的是重载的有参构造，方法内部设置了容量大小，以及初始化了 item 为空的 Node 节点，把 head last 两节点进行一个关联</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105141554397.png"><br>初始化的队列 head last 节点指向的 Node 中 item、next 都为空，此时添加一条记录，队列会发生什么样的变化</p>
+<h3 id="节点入队"><a href="#节点入队" class="headerlink" title="节点入队"></a>节点入队</h3><p>需要添加的元素会被封装为 Node 添加到队列中, put 入队方法语义，<strong>如果队列元素已满，阻塞当前插入线程，直到队列中有空缺位置被唤醒</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">put</span><span class="params">(E e)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">    <span class="keyword">if</span> (e == <span class="literal">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="type">int</span> <span class="variable">c</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">    Node&lt;E&gt; node = <span class="keyword">new</span> <span class="title class_">Node</span>&lt;E&gt;(e);  <span class="comment">// 将需要添加的数据封装为 Node</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">ReentrantLock</span> <span class="variable">putLock</span> <span class="operator">=</span> <span class="built_in">this</span>.putLock;  <span class="comment">// 获取添加操作的锁</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">AtomicInteger</span> <span class="variable">count</span> <span class="operator">=</span> <span class="built_in">this</span>.count;  <span class="comment">// 获取队列实际元素数量</span></span><br><span class="line">    putLock.lockInterruptibly();  <span class="comment">// 运行可被中断加锁 API</span></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">while</span> (count.get() == capacity) &#123;  <span class="comment">// 如果队列元素数量 == 队列最大值，则将线程放入条件队列阻塞</span></span><br><span class="line">            notFull.await();</span><br><span class="line">        &#125;</span><br><span class="line">        enqueue(node);  <span class="comment">// 执行入队流程</span></span><br><span class="line">        c = count.getAndIncrement();  <span class="comment">// 获取值并且自增，举例：count = 0，执行后结果值 count+1 = 2，返回 0</span></span><br><span class="line">        <span class="keyword">if</span> (c + <span class="number">1</span> &lt; capacity)  <span class="comment">// 如果自增过的队列元素 +1 小于队列容器最大数量，唤醒一条被阻塞在插入等待队列的线程</span></span><br><span class="line">            notFull.signal();</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        putLock.unlock();  <span class="comment">// 解锁操作</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (c == <span class="number">0</span>)  <span class="comment">// 当队列中有一条数据，则唤醒消费组线程进行消费</span></span><br><span class="line">        signalNotEmpty();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>入队方法整体流程比较清晰，做了以下几件事：</p>
+<ol>
+<li>队列已满，则将当前线程阻塞</li>
+<li>队列中如果有空缺位置，将数据封装的 Node 执行入队操作</li>
+<li>如果 Node 执行入队操作后，队列还有空余位置，则唤醒等待队列中的添加线程</li>
+<li>如果数据入队前队列没有元素，入队成功后唤醒消费阻塞队列中的线程</li>
+</ol>
+<p>继续看一下入队方法 <code>LBQ#enqueue</code> 都做了什么操作</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">enqueue</span><span class="params">(Node&lt;E&gt; node)</span> &#123;</span><br><span class="line">    last = last.next = node;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代码比较简单，先把 node 赋值为当前 last 节点的 next 属性，然后再把 last 节点指向 node，就完成了节点入队操作</p>
+<p>假设 LBQ 的范型是 String 字符串，首先插入元素 a，队列如下图所示：</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105142312548.png"><br>什么？一条数据不过瘾？没有什么是再来一条解决不了的，元素 b 入队如下：</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105142340446.png"><br>队列入队如上图所示，head 中 item 永为空，last 中 next 永为空</p>
+<p><code>LBQ#offer</code> 也是入队方法，不同的是：<strong>如果队列元素已满，则直接返回 false，不阻塞线程</strong></p>
+<h3 id="节点出队"><a href="#节点出队" class="headerlink" title="节点出队"></a>节点出队</h3><p><code>LBQ#take</code> 出队方法，<strong>如果队列中元素为空，阻塞当前出队线程，直到队列中有元素为止</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> E <span class="title function_">take</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">    E x;</span><br><span class="line">    <span class="type">int</span> <span class="variable">c</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">AtomicInteger</span> <span class="variable">count</span> <span class="operator">=</span> <span class="built_in">this</span>.count;  <span class="comment">// 获取当前队列实际元素个数</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">ReentrantLock</span> <span class="variable">takeLock</span> <span class="operator">=</span> <span class="built_in">this</span>.takeLtakeLocock;  <span class="comment">// 获取 takeLock 锁实例</span></span><br><span class="line">    takeLock.lockInterruptibly();  <span class="comment">// 获取 takeLock 锁，获取不到阻塞过程中，可被中断</span></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">while</span> (count.get() == <span class="number">0</span>) &#123;  <span class="comment">// 如果当前队列元素 == 0，当前获取节点线程加入等待队列</span></span><br><span class="line">            notEmpty.await();</span><br><span class="line">        &#125;</span><br><span class="line">        x = dequeue();  <span class="comment">// 当前队列元素 &gt; 0，执行头节点出队操作</span></span><br><span class="line">        c = count.getAndDecrement();  <span class="comment">// 获取当前队列元素个数，并将数量 - 1</span></span><br><span class="line">        <span class="keyword">if</span> (c &gt; <span class="number">1</span>)  <span class="comment">// 当队列中还有还有元素时，唤醒下一个消费线程进行消费</span></span><br><span class="line">            notEmpty.signal();</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        takeLock.unlock();  <span class="comment">// 释放锁</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (c == capacity)  <span class="comment">// 移除元素之前队列是满的，唤醒生产者线程添加元素</span></span><br><span class="line">        signalNotFull();</span><br><span class="line">    <span class="keyword">return</span> x;  <span class="comment">// 返回头节点</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>出队操作整体流程清晰明了，和入队操作执行流程相似</p>
+<ol>
+<li>队列已满，则将当前出队线程阻塞</li>
+<li>队列中如果有元素可消费，执行节点出队操作</li>
+<li>如果节点出队后，队列中还有可出队元素，则唤醒等待队列中的出队线程</li>
+<li>如果移除元素之前队列是满的，唤醒生产者线程添加元素</li>
+</ol>
+<p><code>LBQ#dequeue</code> 出队操作相对于入队操作稍显复杂一些</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> E <span class="title function_">dequeue</span><span class="params">()</span> &#123;</span><br><span class="line">    Node&lt;E&gt; h = head;  <span class="comment">// 获取队列头节点</span></span><br><span class="line">    Node&lt;E&gt; first = h.next;  <span class="comment">// 获取头节点的后继节点</span></span><br><span class="line">    h.next = h; <span class="comment">// help GC</span></span><br><span class="line">    head = first;  <span class="comment">// 相当于把头节点的后继节点，设置为新的头节点</span></span><br><span class="line">    <span class="type">E</span> <span class="variable">x</span> <span class="operator">=</span> first.item;  <span class="comment">// 获取到新的头节点 item</span></span><br><span class="line">    first.item = <span class="literal">null</span>;  <span class="comment">// 因为头节点 item 为空，所以 item 赋值为 null</span></span><br><span class="line">    <span class="keyword">return</span> x;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>出队流程中，会将原头节点自己指向自己本身，这么做是为了帮助 GC 回收当前节点，接着将原 head 的 next 节点设置为新的 head，下图为一个完整的出队流程</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105143438281.png"><br>出队流程图如上，流程中没有特别注意的点。另外一个 <code>LBQ#poll</code> 出队方法，<strong>如果队列中元素为空，返回 null，不会像 take 一样阻塞</strong></p>
+<h3 id="节点查询"><a href="#节点查询" class="headerlink" title="节点查询"></a>节点查询</h3><p>因为 element 查找方法在父类 AbstractQueue 里实现的，LBQ 里只对 peek 方法进行了实现，节点查询就用 peek 做代表了</p>
+<p>peek 和 element <strong>都是获取队列头节点数据</strong>，两者的区别是，<strong>前者如果队列为空返回 null，后者抛出相关异常</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> E <span class="title function_">peek</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (count.get() == <span class="number">0</span>)  <span class="comment">// 队列为空返回 null</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">ReentrantLock</span> <span class="variable">takeLock</span> <span class="operator">=</span> <span class="built_in">this</span>.takeLock;</span><br><span class="line">    takeLock.lock();  <span class="comment">// 获取锁</span></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        LinkedBlockingQueue.Node&lt;E&gt; first = head.next;  <span class="comment">// 获取头节点的 next 后继节点</span></span><br><span class="line">        <span class="keyword">if</span> (first == <span class="literal">null</span>)  <span class="comment">// 如果后继节点为空，返回 null，否则返回后继节点的 item</span></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            <span class="keyword">return</span> first.item;</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        takeLock.unlock();  <span class="comment">// 解锁</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>看到这里，能够得到结论，虽然 head 节点 item 永远为 null，但是 peek 方法获取的是 head.next 节点 item</p>
+<h3 id="节点删除"><a href="#节点删除" class="headerlink" title="节点删除"></a>节点删除</h3><p>删除操作需要获得两把锁，所以关于获取节点、节点出队、节点入队等操作都会被阻塞</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">remove</span><span class="params">(Object o)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (o == <span class="literal">null</span>) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    fullyLock();  <span class="comment">// 获取两把锁</span></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 从头节点开始，循环遍历队列</span></span><br><span class="line">        <span class="keyword">for</span> (Node&lt;E&gt; trail = head, p = trail.next;</span><br><span class="line">             p != <span class="literal">null</span>;</span><br><span class="line">             trail = p, p = p.next) &#123;</span><br><span class="line">            <span class="keyword">if</span> (o.equals(p.item)) &#123;  <span class="comment">// item == o 执行删除操作</span></span><br><span class="line">                unlink(p, trail);  <span class="comment">// 删除操作</span></span><br><span class="line">                <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        fullyUnlock();  <span class="comment">// 释放两把锁</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>链表删除操作，一般而言都是循环逐条遍历，而这种的 **遍历时间复杂度为 O(n)**，最坏情况就是遍历了链表全部节点</p>
+<p>看一下 <code>LBQ#remove</code> 中 unlink 是如何取消节点关联的</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> <span class="title function_">unlink</span><span class="params">(Node&lt;E&gt; p, Node&lt;E&gt; trail)</span> &#123;</span><br><span class="line">    p.item = <span class="literal">null</span>;  <span class="comment">// 以第一次遍历而言，trail 是头节点，p 为头节点的后继节点</span></span><br><span class="line">    trail.next = p.next;  <span class="comment">// 把头节点的后继指针，设置为 p 节点的后继指针</span></span><br><span class="line">    <span class="keyword">if</span> (last == p)  <span class="comment">// 如果 p == last 设置 last == trail</span></span><br><span class="line">        last = trail;</span><br><span class="line">    <span class="comment">// 如果删除元素前队列是满的，删除后就有了空余位置，唤醒生产线程</span></span><br><span class="line">    <span class="keyword">if</span> (count.getAndDecrement() == capacity)</span><br><span class="line">        notFull.signal();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>remove 方法和 take 方法是有相似之处，如果 remove 方法的元素是头节点，效果和 take 一致，头节点元素出队</p>
+<p>为了更好的理解，我们删除中间元素。画两张图理解下其中原委，代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    BlockingQueue&lt;String&gt; blockingQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>();</span><br><span class="line">    blockingQueue.offer(<span class="string">&quot;a&quot;</span>);</span><br><span class="line">    blockingQueue.offer(<span class="string">&quot;b&quot;</span>);</span><br><span class="line">    blockingQueue.offer(<span class="string">&quot;c&quot;</span>);</span><br><span class="line">    <span class="comment">// 删除队列中间元素</span></span><br><span class="line">    blockingQueue.remove(<span class="string">&quot;b&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行完上述代码中三个 offer 操作，队列结构图如下：</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105143723235.png"><br>执行删除元素 b 操作后队列结构如下图：</p>
+<p><img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20210105144218850.png"><br>如果 p 节点就是 last 尾节点，则把 p 的前驱节点设置为新的尾节点。删除操作大致如此</p>
+<h2 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h2><p>上文说了阻塞队列被大量业务场景所应用，这里例举两个实际工作中的例子帮助大家理解</p>
+<h3 id="生产者-消费者模式"><a href="#生产者-消费者模式" class="headerlink" title="生产者-消费者模式"></a>生产者-消费者模式</h3><p>生产者-消费者模式是一个典型的多线程并发写作模式，生产者和消费者中间需要一个容器来解决强耦合关系，生产者向容器放数据，消费者消费容器数据</p>
+<p>生产者-消费者实现有多种方式</p>
+<ol>
+<li>Object 类中的 wait、notify、notifyAll</li>
+<li>Lock 中 Condition 的 await、signal、signalAll</li>
+<li>BlockingQueue</li>
+</ol>
+<p>阻塞队列实现生产者-消费者模型代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Slf4j</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BlockingQueueTest</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">MAX_NUM</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> BlockingQueue&lt;String&gt; QUEUE = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;&gt;(MAX_NUM);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">produce</span><span class="params">(String str)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            QUEUE.put(str);</span><br><span class="line">            log.info(<span class="string">&quot;  🔥🔥🔥 队列放入元素 :: &#123;&#125;, 队列元素数量 :: &#123;&#125;&quot;</span>, str, QUEUE.size());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InterruptedException ie) &#123;</span><br><span class="line">            <span class="comment">// ignore</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">consume</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            str = QUEUE.take();</span><br><span class="line">            log.info(<span class="string">&quot;  🔥🔥🔥 队列移出元素 :: &#123;&#125;, 队列元素数量 :: &#123;&#125;&quot;</span>, str, QUEUE.size());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InterruptedException ie) &#123;</span><br><span class="line">            <span class="comment">// ignore</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> str;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">BlockingQueueTest</span> <span class="variable">queueTest</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BlockingQueueTest</span>();</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">5</span>; i++) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">finalI</span> <span class="operator">=</span> i;</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">Thread</span>(() -&gt; &#123;</span><br><span class="line">                <span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;元素-&quot;</span>;</span><br><span class="line">                <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">                    queueTest.produce(str + finalI);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;).start();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">5</span>; i++) &#123;</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">Thread</span>(() -&gt; &#123;</span><br><span class="line">                <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">                    queueTest.consume();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;).start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="线程池应用"><a href="#线程池应用" class="headerlink" title="线程池应用"></a>线程池应用</h3><p>阻塞队列在线程池中的具体应用属于是生产者-消费者的实际场景</p>
+<p>线程池在 Java 应用里的重要性不言而喻，这里简要说下线程池的运行原理</p>
+<ol>
+<li>线程池线程数量小于核心线程数执行新增核心线程操作</li>
+<li>线程池线程数量大于或等于核心线程数时，将任务存放阻塞队列</li>
+<li>满足线程池中线程数大于或等于核心线程数并且阻塞队列已满, 线程池创建非核心线程</li>
+</ol>
+<p>重点在于第二点，当线程池核心线程都在运行任务时，会把任务存放阻塞队列中。线程池源码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (isRunning(c) &amp;&amp; workQueue.offer(command)) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>看到使用的 offer 方法，通过上面讲述，如果阻塞队列已满返回 false。那何时进行消费队列中的元素呢。涉及线程池中线程执行过程原理，这里简单说明</p>
+<ol>
+<li>线程池内线程执行任务有两种方式，一种是创建核心线程时 <strong>自带</strong> 的任务，另一种就是从阻塞队列获取</li>
+<li>当核心线程执行一次任务后，其实和非核心线程就没什么区别了</li>
+</ol>
+<p>线程池获取阻塞队列任务使用了两种 API，分别是 poll 和 take</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) : workQueue.take();</span><br></pre></td></tr></table></figure>
+
+<p><strong>Q：为啥要用两个 API？一个不香么？</strong></p>
+<p>A：take 是为了要维护线程池内核心线程的重要手段，如果获取不到任务，线程被挂起，等待下一次任务添加</p>
+<p>至于带时间的 pool 则是为了回收非核心线程准备的</p>
+<h2 id="结言"><a href="#结言" class="headerlink" title="结言"></a>结言</h2><p>LBQ 阻塞队列到这里就讲解完成了，总结下文章所讲述的 LBQ 基本特征</p>
+<ol>
+<li>LBQ 是基于链表实现的阻塞队列，可以进行读写并发执行</li>
+<li>LBQ 队列容量可以自己设置，如果不设置默认 Integer 最大值，也可以称为无界队列</li>
+</ol>
+<p>文章结合源码，针对 LBQ 的入队、出队、查询、删除等操作进行了详细讲解</p>
+<p>LBQ 只是一个引子，更希望大家能够通过文章 <strong>掌握阻塞队列核心思想</strong>，继而查看其它实现类的代码，巩固知识</p>
+<p>小伙伴现在已经知道 LBQ 是通过锁的机制来实现并发安全控制，思考一下 <strong>不使用锁，能否实现以及如何实现</strong>？我们下期再见！</p>
+<br>
+
+      
+    </div>
+    
+    
+    <div class="article-category">
+      
+        <b>Categories:</b>
+        <a class="article-category-link" href="/categories/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a>
+      
+      
+        <br/>
+      
+      
+        <b>Tags:</b>
+        <a class="article-tag-none-link" href="/tags/LinkedBlockingQueue/" rel="tag">LinkedBlockingQueue</a>
+      
+    </div>
+    
+    
+  </div>
+</article>
+
+  
+<nav id="article-nav" class="article-nav">
+  
+    <a href="/2022/12/22/%E7%AD%96%E7%95%A5%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" id="article-nav-newer" class="article-nav-link-wrap newer">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          设计模式之策略模式
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2022/08/02/%E4%BB%80%E4%B9%88%E6%98%AFAQS/" id="article-nav-older" class="article-nav-link-wrap older">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">
+        
+          并发编程之AQS那些事
+        
+      </div>
+    </a>
+  
+</nav>
+
+
+
+
+
+
+    </div>
+  </div>
+  
+
+
+
+
+<div id="settings-container">
+  <div id="dark-mode">dark</div>
+  <div id="sans-font">sans</div>
+</div>
+<script type="text/javascript">
+let d=document,r=d.documentElement.style,f=r.setProperty.bind(r),l=localStorage,s=l.getItem('s')||(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches),n=l.getItem('n'),m=d.getElementById("dark-mode"),b=()=>{f('--bg-color','#fafafa');f('--code-bg-color','#f4f4f4');f('--text-color','#212121');f('--secondary-color','#808080');f('--tertiary-color','#b0b0b0');f('--link-color','#b5c8cf');f('--link-hover-color','#618794');f('--link-bg-color','#dae4e7');f('--selection-color','#dae4e7');m.innerHTML="dark"},c=()=>{f('--bg-color','#212121');f('--code-bg-color','#292929');f('--text-color','#fff');f('--secondary-color','#c0c0c0');f('--tertiary-color','#6e6e6e');f('--link-color','#4d6b75');f('--link-hover-color','#96b1bb');f('--link-bg-color','#5d828e');f('--selection-color','#acc1c9');m.innerHTML="light"},o=d.getElementById("sans-font"),e=()=>{f('--body-stack','"Lora", "Georgia", "Times New Roman", serif');o.innerHTML="sans"},g=()=>{f('--body-stack','"Lato", "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", "Verdana", sans-serif');o.innerHTML="serif"};m.onclick=()=>{if(s==2){s=1;l.setItem('s',s);c()}else{s=2;l.setItem('s',s);b()}};o.onclick=()=>{if(n==2){n=1;l.setItem('n',n);g()}else{n=2;l.setItem('n',n);e()}};if(!s){s=2;l.setItem('s',2)};if(s==1){c()};if(!n){n=2;l.setItem('n',2)};if(n==1){g()};
+</script>
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Python多分支选择的实现 | 孙道之 Tech</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/css/highlight.css">
+
+  
+  <meta name="description" content="相信玩过几天 python 的小伙伴都知道，python 里并没有 switch 关键字实现，那这是为什么呢？ 根据官方说法 PEP 3103 - A Switch&#x2F;Case Statement.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python多分支选择的实现">
+<meta property="og:url" content="https://sundaozhi.tech/2022/04/03/python-switch%E5%A4%9A%E5%88%86%E6%94%AF%E9%80%89%E6%8B%A9%E7%9A%84%E5%AE%9E%E7%8E%B0/index.html">
+<meta property="og:site_name" content="孙道之 Tech">
+<meta property="og:description" content="相信玩过几天 python 的小伙伴都知道，python 里并没有 switch 关键字实现，那这是为什么呢？ 根据官方说法 PEP 3103 - A Switch&#x2F;Case Statement.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2022-04-03T12:11:32.000Z">
+<meta property="article:modified_time" content="2023-02-26T11:45:26.894Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Switch">
+<meta name="twitter:card" content="summary"><meta name="generator" content="Hexo 6.3.0"></head>
+
+<body>
+  <div id="wrapper">
+    <header id="header">
+  <h1 id="title">
+    <a href="/">孙道之 Tech</a>
+  </h1>
+  <nav>
+    
+    
+      
+      <a class="nav-link" href="/">Home</a>
+    
+      
+        <span class="nav-spacer">×</span>
+      
+      <a class="nav-link" href="/archives">Archives</a>
+    
+    
+  </nav>
+</header>
+
+    <div id="content">
+      <article id="post-python-switch多分支选择的实现" class="article article-type-post" itemprop="blogPost" itemscope>
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h2 class="article-title" itemprop="headline name">
+      Python多分支选择的实现
+    </h2>
+  
+
+
+        <div class="article-meta">
+          <time class="article-date" datetime="2022-04-03T12:11:32.000Z" itemprop="datePublished">April 3, 2022, 8:11 PM</time>
+
+          
+        </div>
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+      
+        <p>相信玩过几天 python 的小伙伴都知道，python 里并没有 switch 关键字实现，那这是为什么呢？</p>
+<p>根据官方说法 PEP 3103 - A Switch&#x2F;Case Statement.</p>
+<span id="more"></span>
+
+<p>实现 switch case 需要被判断的变量是可哈希和可比较的，这与 python 提倡的灵活性有冲突。在实现上优化不好做，可能到最后最差的情况汇编出来和 if else 组是一样的，所以 python 没有支持</p>
+<p>但是没有 switch 关键字，不代表不能实现类似效果，接下来通过几个小程序来说明此类问题</p>
+<h2 id="if-else-判断"><a href="#if-else-判断" class="headerlink" title="if else 判断"></a>if else 判断</h2><hr>
+<p>我们通过最常用的 if else 判断来实现一段代码</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">matching_if</span>(<span class="params"><span class="built_in">type</span></span>):</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">type</span> == <span class="number">0</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&#x27;优惠1块钱&#x27;</span></span><br><span class="line">    <span class="keyword">elif</span> <span class="built_in">type</span> == <span class="number">1</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&#x27;优惠10块钱&#x27;</span></span><br><span class="line">    <span class="keyword">elif</span> <span class="built_in">type</span> == <span class="number">2</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&#x27;优惠100块钱&#x27;</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">&#x27;无优惠&#x27;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    <span class="built_in">print</span>(matching_if(<span class="number">1</span>))</span><br><span class="line">    <span class="built_in">print</span>(matching_if(<span class="number">999</span>))</span><br></pre></td></tr></table></figure>
+
+<p>执行结果如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">打印输出：</span></span><br><span class="line"><span class="string">    优惠10块钱</span></span><br><span class="line"><span class="string">    无优惠</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="dict-字典"><a href="#dict-字典" class="headerlink" title="dict 字典"></a>dict 字典</h2><hr>
+<p>可以使用字典实现 switch case，这种方式易维护，同时也能够减少代码量。如下是使用字典模拟的 switch case 实现：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">matching_dict</span>(<span class="params"><span class="built_in">type</span></span>):</span><br><span class="line">    types = &#123;</span><br><span class="line">        <span class="number">0</span>: <span class="string">&#x27;优惠1块钱&#x27;</span>,</span><br><span class="line">        <span class="number">1</span>: <span class="string">&#x27;优惠10块钱&#x27;</span>,</span><br><span class="line">        <span class="number">2</span>: <span class="string">&#x27;优惠100块钱&#x27;</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> types.get(<span class="built_in">type</span>, <span class="string">&#x27;无优惠&#x27;</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    <span class="built_in">print</span>(matching_dict(<span class="number">1</span>))</span><br><span class="line">    <span class="built_in">print</span>(matching_dict(<span class="number">999</span>))</span><br></pre></td></tr></table></figure>
+
+<p>代码从整体上看着简洁了很多，那还有没有别的方式呢？</p>
+<h2 id="函数判断"><a href="#函数判断" class="headerlink" title="函数判断"></a>函数判断</h2><hr>
+<p>函数判断从代码数量来说并无优势，优势点在于其灵活性，如果根据不同的类型作出大量操作，函数运算无疑是最优的方式</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">one</span>():</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&#x27;优惠1块钱&#x27;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">two</span>():</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&#x27;优惠10块钱&#x27;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">three</span>():</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&#x27;优惠100块钱&#x27;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">default</span>():</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&#x27;无优惠&#x27;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">matching_method</span>(<span class="params"><span class="built_in">type</span></span>):</span><br><span class="line">    types = &#123;</span><br><span class="line">        <span class="number">0</span>: one,</span><br><span class="line">        <span class="number">1</span>: two,</span><br><span class="line">        <span class="number">2</span>: three</span><br><span class="line">    &#125;</span><br><span class="line">    method = types.get(<span class="built_in">type</span>, default)</span><br><span class="line">    <span class="keyword">return</span> method()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    <span class="built_in">print</span>(matching_method(<span class="number">1</span>))</span><br><span class="line">    <span class="built_in">print</span>(matching_method(<span class="number">999</span>))</span><br></pre></td></tr></table></figure>
+
+<p><strong>优雅的代码是程序员的追求之一</strong>，作者本人也有一定程度的代码洁癖，所以涉及此类应用，会选择第二种 dict 字典类型应用</p>
+<h2 id="lambda-函数"><a href="#lambda-函数" class="headerlink" title="lambda 函数"></a>lambda 函数</h2><hr>
+<p>这里推出一款 lambda 配合 dict 字典的方式，可以对运算条件作出更为精准的计算</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">matching_lambda</span>(<span class="params"><span class="built_in">type</span></span>):</span><br><span class="line">    matching_dict = <span class="keyword">lambda</span> x: &#123;</span><br><span class="line">        x == <span class="number">0</span>: <span class="string">&#x27;优惠1块钱&#x27;</span>,</span><br><span class="line">        x == <span class="number">1</span>: <span class="string">&#x27;优惠10块钱&#x27;</span>,</span><br><span class="line">        x == <span class="number">2</span>: <span class="string">&#x27;优惠100块钱&#x27;</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> matching_dict(<span class="built_in">type</span>)[<span class="literal">True</span>]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    <span class="built_in">print</span>(matching_lambda(<span class="number">1</span>))</span><br><span class="line">    <span class="built_in">print</span>(matching_lambda(<span class="number">2</span>))</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    
+    
+    <div class="article-category">
+      
+        <b>Categories:</b>
+        <a class="article-category-link" href="/categories/Python/">Python</a>
+      
+      
+        <br/>
+      
+      
+        <b>Tags:</b>
+        <a class="article-tag-none-link" href="/tags/Python/" rel="tag">Python</a>, <a class="article-tag-none-link" href="/tags/Switch/" rel="tag">Switch</a>
+      
+    </div>
+    
+    
+  </div>
+</article>
+
+  
+<nav id="article-nav" class="article-nav">
+  
+    <a href="/2022/05/02/springboot-%E5%A6%82%E4%BD%95%E4%BC%98%E9%9B%85%E7%9A%84%E4%BD%BF%E7%94%A8alibaba-rocketmq%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" id="article-nav-newer" class="article-nav-link-wrap newer">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          如何优雅的使用RocketMQ
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2022/02/28/linux-centos7.x%E5%AE%89%E8%A3%85python3.x%E6%9B%BF%E6%8D%A2python2.x/" id="article-nav-older" class="article-nav-link-wrap older">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">
+        
+          Centos安装Python3.x
+        
+      </div>
+    </a>
+  
+</nav>
+
+
+
+
+
+
+    </div>
+  </div>
+  
+
+
+
+
+<div id="settings-container">
+  <div id="dark-mode">dark</div>
+  <div id="sans-font">sans</div>
+</div>
+<script type="text/javascript">
+let d=document,r=d.documentElement.style,f=r.setProperty.bind(r),l=localStorage,s=l.getItem('s')||(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches),n=l.getItem('n'),m=d.getElementById("dark-mode"),b=()=>{f('--bg-color','#fafafa');f('--code-bg-color','#f4f4f4');f('--text-color','#212121');f('--secondary-color','#808080');f('--tertiary-color','#b0b0b0');f('--link-color','#b5c8cf');f('--link-hover-color','#618794');f('--link-bg-color','#dae4e7');f('--selection-color','#dae4e7');m.innerHTML="dark"},c=()=>{f('--bg-color','#212121');f('--code-bg-color','#292929');f('--text-color','#fff');f('--secondary-color','#c0c0c0');f('--tertiary-color','#6e6e6e');f('--link-color','#4d6b75');f('--link-hover-color','#96b1bb');f('--link-bg-color','#5d828e');f('--selection-color','#acc1c9');m.innerHTML="light"},o=d.getElementById("sans-font"),e=()=>{f('--body-stack','"Lora", "Georgia", "Times New Roman", serif');o.innerHTML="sans"},g=()=>{f('--body-stack','"Lato", "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", "Verdana", sans-serif');o.innerHTML="serif"};m.onclick=()=>{if(s==2){s=1;l.setItem('s',s);c()}else{s=2;l.setItem('s',s);b()}};o.onclick=()=>{if(n==2){n=1;l.setItem('n',n);g()}else{n=2;l.setItem('n',n);e()}};if(!s){s=2;l.setItem('s',2)};if(s==1){c()};if(!n){n=2;l.setItem('n',2)};if(n==1){g()};
+</script>
+
+
+
+
+</body>
+</html>
