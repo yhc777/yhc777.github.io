@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   
-  <title>线程池核心线程如何不被销毁 | 孙道之 Tech</title>
+  <title>线程池核心线程如何不被销毁 | 余建波 Tech</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   
   
@@ -18,12 +18,12 @@
   <meta name="description" content="很早之前那个时候练习线程池, 就是感觉线程池类似于 ArrayList 这种集合类结构, 将 Thread 类存储, 来任务了就进行消费, 然鹅… 线程池并不是对 Thread 直接存储, 而是对 Thread 进行了一层包装, 包装类叫做 Worker">
 <meta property="og:type" content="article">
 <meta property="og:title" content="线程池核心线程如何不被销毁">
-<meta property="og:url" content="https://sundaozhi.tech/2022/08/02/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E6%A0%B8%E5%BF%83%E7%BA%BF%E7%A8%8B%E4%B8%8D%E8%A2%AB%E9%94%80%E6%AF%81/index.html">
-<meta property="og:site_name" content="孙道之 Tech">
+<meta property="og:url" content="https://yujianbo.tech/2022/08/02/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E6%A0%B8%E5%BF%83%E7%BA%BF%E7%A8%8B%E4%B8%8D%E8%A2%AB%E9%94%80%E6%AF%81/index.html">
+<meta property="og:site_name" content="余建波 Tech">
 <meta property="og:description" content="很早之前那个时候练习线程池, 就是感觉线程池类似于 ArrayList 这种集合类结构, 将 Thread 类存储, 来任务了就进行消费, 然鹅… 线程池并不是对 Thread 直接存储, 而是对 Thread 进行了一层包装, 包装类叫做 Worker">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2022-08-02T15:19:07.000Z">
-<meta property="article:modified_time" content="2023-02-26T11:48:38.935Z">
+<meta property="article:modified_time" content="2023-02-26T11:48:38.000Z">
 <meta property="article:author" content="John Doe">
 <meta property="article:tag" content="线程池">
 <meta name="twitter:card" content="summary"><meta name="generator" content="Hexo 6.3.0"></head>
@@ -32,7 +32,7 @@
   <div id="wrapper">
     <header id="header">
   <h1 id="title">
-    <a href="/">孙道之 Tech</a>
+    <a href="/">余建波 Tech</a>
   </h1>
   <nav>
     
